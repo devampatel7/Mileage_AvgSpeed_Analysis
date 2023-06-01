@@ -1,0 +1,175 @@
+---
+title: "Mileage and average speed analysis"
+author: "Devam Patel"
+date: "2023-03-31"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(moderndive)
+data = read.delim('mpg_data.txt')
+
+head(data)
+```
+
+### 1. Create a scatterplot of the data from the calibration runs, plotting the MPG on the vertical axis and speed on the horizontal axis (be sure to properly label your plot). Does there appear to be an association between the speed the bike is driven at and the MPG? If so, explain what the nature of the relationship seems to be. 
+
+```{r}
+ggplot(data=data, aes(x=Speed_.mph., y=MPG)) + geom_point() +xlab('Speed in MPH') + ylab('MPG')
+
+```
+
+### Answer 1. Based on the plot above, it is evident that there is a quadratic relationship between speed and miles per gallon. The plot is not linear and it is inappropriate to use SLM as linearity  can not be corrected as the plot is not monotonic. More specifically, for speed < 60 MPH, the MPG increases as speed increases, while after 60 MPH, MPG decreases as speed increases.
+
+### Question 2. The National Highway Traffic Safety Administration (NHTSA) requires all vehicles marketed in the US to provide ranges for what the mean MPG is at a variety of speeds. Treating MPG as the response variable and speed as the explanatory variable, are enough of the model assumptions satisfied in order to fit a polynomial model to this data towards the prior purpose? If not, explain what must be done to address the deviations from the needed model assumptions (if necessary). 
+
+### Answer 2. As evident from the plot in part 1, we can not use simple linear model as most importantly the linearity assumption is violated because while the curve is simple, it is not monotonic. In addtion, the assumption of homoscedasticity or constant variance is also violated by the look of the plot as the data is clustered towards the tails of the graph. To address this, a form of transformation of the dataset is needed, which are explored below
+
+
+
+
+```{r}
+ggplot(data=data, aes(x=(Speed_.mph.), y=(MPG)^0.5)) + geom_point() +xlab('Speed in MPH') + ylab('MPG')+ggtitle("square root transformation ")
+ggplot(data=data, aes(x=(Speed_.mph.), y=log(MPG))) + geom_point() +xlab('Speed in MPH') + ylab('MPG') + ggtitle("log transformation ")
+ggplot(data=data, aes(x=(Speed_.mph.), y=1/(MPG))) + geom_point() +xlab('Speed in MPH') + ylab('MPG') + ggtitle("inverse transformation ")
+
+```
+
+### Log Transformation was applied to MPG
+
+
+```{r}
+data$y_trans = log(data$MPG)
+head(data)
+```
+
+
+
+
+### Question 3. After addressing any issues in part 2, fit a polynomial model to the data. Clearly explain the process with which you went about arriving at the order of the polynomial model you fit (you will need to fit several polynomial models and compare them). Explicitly write out the estimated model equation for the polynomial model you decided upon (on the transformed scales if data transformations were needed).
+
+```{r}
+model1 = lm(data = data, y_trans ~ Speed_.mph.)
+summary(model1)
+
+model2 = lm(data = data, y_trans ~ Speed_.mph. + I(Speed_.mph.^2))
+summary(model2)
+
+model3 = lm(data = data, y_trans ~ Speed_.mph. + I(Speed_.mph.^2) + I(Speed_.mph.^3))
+summary(model3)
+
+model4 = lm(data = data, y_trans ~ Speed_.mph. + I(Speed_.mph.^2) + I(Speed_.mph.^3) + I(Speed_.mph.^4) )
+summary(model4)
+
+```
+
+### Answer 3. First step for deciding on the model was to take a glance at the simple linear model to get an idea of the explanatory variables explains the response in a linear relationship. Clearly, the p-value was very high, which leads to trying a polynomial model with different degrees. First, I decided to use degree 2 as the plot changes direction only once. With such a model, the p-value was significant as it was < 0.05 but the adjusted R-squared was around 0.91. I continued to try with degrees 3 and 4, and noticed a massive jump as I evaluated the model with degree 4, with the adjusted r-square value increasing from 0.91 to 0.97. So I continued to try higher degrees that are even that would optimize the adjusted r-squared value.   
+
+```{r}
+model5 = lm(data = data, y_trans ~ Speed_.mph. + I(Speed_.mph.^2) + I(Speed_.mph.^3) + I(Speed_.mph.^4) + I(Speed_.mph.^5) + I(Speed_.mph.^6))
+summary(model5)
+
+model6 = lm(data = data, y_trans ~ Speed_.mph. + I(Speed_.mph.^2) + I(Speed_.mph.^3) + I(Speed_.mph.^4) + I(Speed_.mph.^5) + I(Speed_.mph.^6) + I(Speed_.mph.^7) + I(Speed_.mph.^8))
+summary(model6)
+
+```
+
+### (Cont.) Answer 3. After exploring models with higher degrees, as seen above, I think the most optimal is degree 4 as the change in adjusted r-squared value plateaus and even decreases when we try higher degrees such as 6 or 8. Therefore, the estimated model equation is MPG = e^(2.572e+00  + (6.831e-02)*X + (-1.689e-03)*X^2 + (1.876e-05)*X^3 + (-7.865e-08)*X^4), X = Speed in MPH.
+
+### Question 4. On a scatter plot depicting the MPG on the vertical axis and speed on the horizontal axis (on their original,untransformed measurement scales), overlay the estimated model on the plot (in the event you transformed any of your variables, this may necessitate back transforming the polynomial model that was constructed on the transformed data).
+
+
+```{r}
+poly_eqn <- function(X) {
+  return( (exp(2.572e+00  + (6.831e-02)*X + (-1.689e-03)*X^2 + (1.876e-05)*X^3 + (-7.865e-08)*X^4 ))  )
+}
+
+
+
+
+ggplot(data=data, aes(x=Speed_.mph., y=MPG)) + geom_point() +xlab('Speed in MPH') + ylab('MPG')+
+  stat_function(fun = poly_eqn, color='blue')+
+  ggtitle('Using the equation: Adjusted R-squared: 0.9722')
+
+
+```
+
+
+### Question 5.  From the model constructed in part 3, can one conclude that there is a statistically significant relationship between MPG and the speed? Explain what procedure you used to determine so and why you arrived at your conclusion
+
+### We can conclude that there is a statistically significant relationship between MPG and speed based on the model summaries above. According to the model summaries, the p-value is lass than 2.2e-16, which is less than the threshold of 0.05 and, thus, significant. In addition, a high R-squared value 0f 0.9722 indicates that the model fits the data well and that the speed variable has a strong relationship with the response variable, MPG.
+
+
+### Question 6. Calculate the coefficient of determination for the model on the original measurement scale (if transformations were applied to the data, calculations of the various sums of squares requires back transforming the fitted values from the polynomial model on the transformed data to get the fitted values and residuals on the original scale)
+
+```{r}
+fitted = predict(model4)
+
+fitted_orig = exp(fitted)
+
+y = data$MPG
+
+SStot <- sum((y - mean(y))^2)
+SSres <- sum((y - fitted_orig)^2)
+Rsquared <- 1 - SSres/SStot
+
+Rsquared
+
+```
+
+
+### Answer 6. Based on the calculations above, the coefficient of determination for the model, or the R-squared value, on the original scale is calculated to 0.9639. 
+
+
+
+### Question 7. According to the model constructed in part 3, at what speed is the engine most fuel efficient (i.e. what speed does it have the highest MPG on average). Explain how you arrived at this value (this can certainly be ascertained analytically, but providing a numerically approximated value is also acceptable as well).
+
+```{r}
+ggplot(data=data, aes(x=Speed_.mph., y=MPG)) + geom_point(col= 'red' ) +xlab('Speed in MPH') + ylab('MPG')+stat_function(fun = poly_eqn, color='blue')+ggtitle('graph with equation from model')
+a <- 50
+b <- 75
+
+```
+
+
+
+
+
+```{r}
+
+f <- function(X) exp(2.572e+00  + (6.831e-02)*X + (-1.689e-03)*X^2 + (1.876e-05)*X^3 + (-7.865e-08)*X^4)
+
+result <- optimize(f, interval = c(a, b), maximum = TRUE)
+result$objective
+result$maximum
+
+
+```
+
+### Answer 7. Based on the graph above, we could approximate that the engine is the most fuel efficient between 50 and 75. Using those values as the interval, we can optimize the function and find the absolute maxima of the function from the model. After optimizing, engine is most fuel efficient when the speed is 67.06625 MPH with the MPG of 37.497, based on the equation of the model. 
+
+
+
+
+
+### Question 8. On a scatter plot depicting the MPG on the vertical axis and speed on the horizontal axis (on their original, untransformed measurement scales), overlay 90% confidence bands for the mean MPG as functions of the speed (in the event you transformed any of your variables, this will necessitate back transforming the 90% confidence bands for the polynomial model that were constructed on the transformed data).
+
+```{r}
+plot(data$Speed_.mph., data$MPG, col = 'blue', xlab = "speed in MPH", ylab = 'MPG')
+ci <- predict(model4, interval= 'confidence', level=0.90)
+ci <- cbind(data$Speed_.mph., exp(ci))
+ci <- ci[order(ci[,1]),]
+points(ci[,1], ci[,2], type='l', col='red')
+points(ci[,1], ci[,3], type='l', lty=2 , col='green')
+points(ci[,1], ci[,4], type='l', lty=2 ,col='green')
+
+
+```
+
+
